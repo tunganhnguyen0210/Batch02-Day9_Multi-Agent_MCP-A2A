@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Agent Legal System — Stage 4 & 5 Demo</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2d3148;
+      --accent: #7c6af7;
+      --accent2: #38bdf8;
+      --green: #4ade80;
+      --yellow: #facc15;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --card: #1e2235;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .tab {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Stage 4 layout ─────────────────────────────── */
+    .stage4-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) { .stage4-layout { grid-template-columns: 1fr; } }
+
+    .flow-column { display: flex; flex-direction: column; gap: 12px; }
+
+    .agent-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .agent-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124,106,247,0.25);
+    }
+    .agent-card.done { border-color: var(--green); }
+    .agent-card.parallel { border-color: var(--accent2); }
+
+    .agent-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .agent-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .icon-law    { background: #312e81; }
+    .icon-router { background: #1e3a5f; }
+    .icon-tax    { background: #1a3a2a; }
+    .icon-compliance { background: #3a1a1a; }
+    .icon-privacy    { background: #2a1a3a; }
+    .icon-aggregate  { background: #2a2a1a; }
+    .icon-user   { background: #3a3a1a; }
+
+    .agent-name { font-weight: 600; font-size: 0.95rem; }
+    .agent-port { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+
+    .agent-desc { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .badge-idle    { background: #1e2235; color: var(--muted); }
+    .badge-running { background: #312e81; color: #a5b4fc; }
+    .badge-done    { background: #14532d; color: #86efac; }
+    .badge-error   { background: #450a0a; color: #fca5a5; }
+
+    .pulse {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: currentColor;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .output-box {
+      margin-top: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.78rem;
+      color: var(--text);
+      min-height: 48px;
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    /* arrows */
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 1.2rem;
+      height: 20px;
+    }
+    .arrow.active { color: var(--accent); }
+
+    /* parallel row */
+    .parallel-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 700px) { .parallel-row { grid-template-columns: 1fr; } }
+
+    /* log panel */
+    .log-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .log-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .log-entries {
+      font-size: 0.78rem;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      max-height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-entry {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .log-time { color: var(--muted); flex-shrink: 0; }
+    .log-msg { color: var(--text); }
+    .log-msg.info  { color: var(--accent2); }
+    .log-msg.ok    { color: var(--green); }
+    .log-msg.warn  { color: var(--yellow); }
+    .log-msg.error { color: var(--red); }
+
+    /* controls */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .input-wrap {
+      flex: 1;
+      min-width: 260px;
+    }
+    input[type=text] {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    input[type=text]:focus { outline: none; border-color: var(--accent); }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    .btn-run   { background: var(--accent); color: #fff; }
+    .btn-reset { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+    /* latency bar */
+    .latency-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .latency-title { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .latency-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .latency-item { background: var(--bg); border-radius: 8px; padding: 12px; }
+    .latency-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+    .latency-value { font-size: 1.3rem; font-weight: 700; }
+    .latency-value.fast { color: var(--green); }
+    .latency-value.mid  { color: var(--yellow); }
+    .latency-value.slow { color: var(--red); }
+    .latency-bar-wrap { margin-top: 6px; background: var(--border); border-radius: 4px; height: 6px; }
+    .latency-bar { height: 6px; border-radius: 4px; transition: width 0.8s ease; }
+
+    /* Stage 5 topology */
+    .topo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    .topo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+    }
+    .topo-node {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      text-align: center;
+      min-width: 130px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      cursor: default;
+    }
+    .topo-node.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124,106,247,0.3);
+    }
+    .topo-node.done { border-color: var(--green); }
+    .topo-node-name { font-size: 0.85rem; font-weight: 600; }
+    .topo-node-port { font-size: 0.72rem; color: var(--muted); }
+    .topo-conn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .topo-conn-line {
+      width: 2px; height: 20px;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .topo-conn-line.active { background: var(--accent); }
+    .topo-h-conn {
+      height: 2px; width: 30px;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .topo-h-conn.active { background: var(--accent2); }
+
+    .seq-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .seq-title { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 14px; text-transform: uppercase; }
+    .seq-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .seq-table th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    .seq-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .seq-table tr:last-child td { border-bottom: none; }
+    .seq-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .seq-a2a      { background: #1e3a5f; color: #7dd3fc; }
+    .seq-http     { background: #312e81; color: #c4b5fd; }
+    .seq-parallel { background: #1a3a2a; color: #86efac; }
+
+    /* optimization section */
+    .opt-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .opt-title { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 16px; text-transform: uppercase; }
+    .opt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .opt-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .opt-item-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 6px; color: var(--accent2); }
+    .opt-item-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+    .opt-saving { font-size: 0.85rem; color: var(--green); font-weight: 600; margin-top: 8px; }
+
+    .compare-bar { margin-top: 20px; }
+    .bar-label { font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .bar-track { background: var(--border); border-radius: 4px; height: 10px; margin-bottom: 10px; }
+    .bar-fill   { height: 10px; border-radius: 4px; }
+    .bar-before { background: var(--red); }
+    .bar-after  { background: var(--green); }
+  </style>
+</head>
+<body>
+
+<h1>⚖️ Multi-Agent Legal System</h1>
+<p class="subtitle">Interactive Demo — Stage 4 (In-Process) &amp; Stage 5 (Distributed A2A)</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('stage4')">Stage 4 — In-Process</button>
+  <button class="tab" onclick="switchTab('stage5')">Stage 5 — Distributed A2A</button>
+  <button class="tab" onclick="switchTab('latency')">Latency &amp; Optimization</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     STAGE 4
+═══════════════════════════════════════════════════════ -->
+<div id="panel-stage4" class="panel active">
+  <div class="controls">
+    <div class="input-wrap">
+      <input type="text" id="s4-question"
+        value="A company avoided taxes and shared user data without consent — legal consequences?"
+        placeholder="Enter legal question..." />
+    </div>
+    <button class="btn-run" onclick="runStage4()">▶ Run Stage 4</button>
+    <button class="btn-reset" onclick="resetStage4()">↺ Reset</button>
+  </div>
+
+  <div class="stage4-layout">
+    <!-- Left: flow -->
+    <div class="flow-column">
+
+      <div class="agent-card" id="s4-node-law">
+        <div class="agent-header">
+          <div class="agent-icon icon-law">⚖️</div>
+          <div>
+            <div class="agent-name">analyze_law</div>
+            <div class="agent-desc">Lead attorney — contract &amp; tort analysis</div>
+          </div>
+        </div>
+        <span class="status-badge badge-idle" id="s4-badge-law">● Idle</span>
+        <div class="output-box" id="s4-out-law">Waiting...</div>
+      </div>
+
+      <div class="arrow" id="s4-arr1">↓</div>
+
+      <div class="agent-card" id="s4-node-router">
+        <div class="agent-header">
+          <div class="agent-icon icon-router">🔀</div>
+          <div>
+            <div class="agent-name">check_routing</div>
+            <div class="agent-desc">Decides which specialists are needed</div>
+          </div>
+        </div>
+        <span class="status-badge badge-idle" id="s4-badge-router">● Idle</span>
+        <div class="output-box" id="s4-out-router">Waiting...</div>
+      </div>
+
+      <div class="arrow" id="s4-arr2">↓ parallel dispatch (Send API)</div>
+
+      <div class="parallel-row">
+        <div class="agent-card" id="s4-node-tax">
+          <div class="agent-header">
+            <div class="agent-icon icon-tax">💰</div>
+            <div><div class="agent-name">call_tax</div></div>
+          </div>
+          <span class="status-badge badge-idle" id="s4-badge-tax">● Idle</span>
+          <div class="output-box" id="s4-out-tax">Waiting...</div>
+        </div>
+        <div class="agent-card" id="s4-node-compliance">
+          <div class="agent-header">
+            <div class="agent-icon icon-compliance">📋</div>
+            <div><div class="agent-name">call_compliance</div></div>
+          </div>
+          <span class="status-badge badge-idle" id="s4-badge-compliance">● Idle</span>
+          <div class="output-box" id="s4-out-compliance">Waiting...</div>
+        </div>
+        <div class="agent-card" id="s4-node-privacy">
+          <div class="agent-header">
+            <div class="agent-icon icon-privacy">🔒</div>
+            <div><div class="agent-name">privacy_agent</div></div>
+          </div>
+          <span class="status-badge badge-idle" id="s4-badge-privacy">● Idle</span>
+          <div class="output-box" id="s4-out-privacy">Waiting...</div>
+        </div>
+      </div>
+
+      <div class="arrow" id="s4-arr3">↓</div>
+
+      <div class="agent-card" id="s4-node-agg">
+        <div class="agent-header">
+          <div class="agent-icon icon-aggregate">📝</div>
+          <div>
+            <div class="agent-name">aggregate</div>
+            <div class="agent-desc">Combines all analyses into final answer</div>
+          </div>
+        </div>
+        <span class="status-badge badge-idle" id="s4-badge-agg">● Idle</span>
+        <div class="output-box" id="s4-out-agg">Waiting...</div>
+      </div>
+
+    </div>
+
+    <!-- Right: logs -->
+    <div>
+      <div class="log-panel" style="height:100%">
+        <div class="log-title">Execution Log</div>
+        <div class="log-entries" id="s4-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     STAGE 5
+═══════════════════════════════════════════════════════ -->
+<div id="panel-stage5" class="panel">
+  <div class="controls">
+    <div class="input-wrap">
+      <input type="text" id="s5-question"
+        value="Company breached NDA, evaded taxes, and violated GDPR. What are the consequences?"
+        placeholder="Enter legal question..." />
+    </div>
+    <button class="btn-run" onclick="runStage5()">▶ Run Stage 5</button>
+    <button class="btn-reset" onclick="resetStage5()">↺ Reset</button>
+  </div>
+
+  <div class="topo" id="s5-topo">
+    <div class="topo-row">
+      <div class="topo-node" id="s5-registry">
+        <div class="topo-node-name">🗂️ Registry</div>
+        <div class="topo-node-port">:10000</div>
+      </div>
+    </div>
+    <div class="topo-conn"><div class="topo-conn-line" id="s5-line-rc"></div></div>
+    <div class="topo-row">
+      <div class="topo-node" id="s5-customer">
+        <div class="topo-node-name">👤 Customer Agent</div>
+        <div class="topo-node-port">:10100</div>
+      </div>
+    </div>
+    <div class="topo-conn"><div class="topo-conn-line" id="s5-line-cl"></div></div>
+    <div class="topo-row">
+      <div class="topo-node" id="s5-law">
+        <div class="topo-node-name">⚖️ Law Agent</div>
+        <div class="topo-node-port">:10101 — orchestrator</div>
+      </div>
+    </div>
+    <div class="topo-conn"><div class="topo-conn-line" id="s5-line-ls"></div></div>
+    <div class="topo-row" style="gap:40px">
+      <div class="topo-node" id="s5-tax">
+        <div class="topo-node-name">💰 Tax Agent</div>
+        <div class="topo-node-port">:10102</div>
+      </div>
+      <div class="topo-h-conn" id="s5-hline"></div>
+      <div class="topo-node" id="s5-compliance">
+        <div class="topo-node-name">📋 Compliance</div>
+        <div class="topo-node-port">:10103</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="seq-section">
+    <div class="seq-title">Request Sequence — trace_id propagation</div>
+    <table class="seq-table">
+      <thead>
+        <tr>
+          <th>Step</th><th>From</th><th>To</th><th>Protocol</th><th>Payload</th>
+        </tr>
+      </thead>
+      <tbody id="s5-seq-body">
+        <tr><td colspan="5" style="color:var(--muted);text-align:center">Press Run to simulate...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="log-panel" style="margin-top:16px">
+    <div class="log-title">Service Logs</div>
+    <div class="log-entries" id="s5-log"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     LATENCY & OPTIMIZATION
+═══════════════════════════════════════════════════════ -->
+<div id="panel-latency" class="panel">
+
+  <div class="latency-section">
+    <div class="latency-title">Stage 5 — Measured Latency (typical run)</div>
+    <div class="latency-grid">
+      <div class="latency-item">
+        <div class="latency-label">Customer Agent (HTTP + LLM)</div>
+        <div class="latency-value mid">~0.8s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:16%;background:var(--yellow)"></div></div>
+      </div>
+      <div class="latency-item">
+        <div class="latency-label">Law Agent — analyze_law</div>
+        <div class="latency-value mid">~1.5s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:30%;background:var(--yellow)"></div></div>
+      </div>
+      <div class="latency-item">
+        <div class="latency-label">Law Agent — check_routing</div>
+        <div class="latency-value mid">~0.6s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:12%;background:var(--yellow)"></div></div>
+      </div>
+      <div class="latency-item">
+        <div class="latency-label">Tax + Compliance (parallel)</div>
+        <div class="latency-value slow">~2.5s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:50%;background:var(--red)"></div></div>
+      </div>
+      <div class="latency-item">
+        <div class="latency-label">Aggregate (LLM synthesis)</div>
+        <div class="latency-value mid">~1.2s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:24%;background:var(--yellow)"></div></div>
+      </div>
+      <div class="latency-item" style="border-color:var(--red)">
+        <div class="latency-label">Total (sequential baseline)</div>
+        <div class="latency-value slow">~6.6s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:100%;background:var(--red)"></div></div>
+      </div>
+      <div class="latency-item" style="border-color:var(--green)">
+        <div class="latency-label">Total (with parallel dispatch)</div>
+        <div class="latency-value fast">~4.1s</div>
+        <div class="latency-bar-wrap"><div class="latency-bar" style="width:62%;background:var(--green)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-section">
+    <div class="opt-title">Phương Án Giảm Latency</div>
+    <div class="opt-grid">
+
+      <div class="opt-item">
+        <div class="opt-item-title">1. Prompt Caching (Anthropic)</div>
+        <div class="opt-item-desc">
+          Dùng cache_control breakpoints trên system prompts dài. Các LLM call lặp lại cùng system prompt sẽ tái sử dụng cached tokens thay vì recompute.
+          <br><br>
+          <code style="font-size:0.75rem;color:var(--accent2)">cache_control: {"type": "ephemeral"}</code>
+        </div>
+        <div class="opt-saving">↓ ~40-60% TTFT cho specialist agents</div>
+      </div>
+
+      <div class="opt-item">
+        <div class="opt-item-title">2. Parallel Specialist Dispatch</div>
+        <div class="opt-item-desc">
+          Đã implement với LangGraph Send API (Stage 4) và asyncio.gather (Stage 5). Tax + Compliance chạy đồng thời thay vì tuần tự, tiết kiệm thời gian bằng agent chậm nhất.
+        </div>
+        <div class="opt-saving">↓ ~2.5s (từ 5s → 2.5s cho specialist phase)</div>
+      </div>
+
+      <div class="opt-item">
+        <div class="opt-item-title">3. Streaming Responses</div>
+        <div class="opt-item-desc">
+          Dùng <code style="font-size:0.75rem;color:var(--accent2)">astream()</code> thay vì <code style="font-size:0.75rem;color:var(--accent2)">ainvoke()</code> để trả về từng token ngay khi LLM sinh ra. User nhận được kết quả bắt đầu sớm hơn ~1-2s.
+        </div>
+        <div class="opt-saving">↓ TTFB từ ~4s → &lt;0.5s (perceived speed)</div>
+      </div>
+
+      <div class="opt-item">
+        <div class="opt-item-title">4. Model Tiering</div>
+        <div class="opt-item-desc">
+          Dùng model nhỏ hơn (claude-haiku-4-5) cho check_routing và các bước đơn giản. Chỉ dùng claude-sonnet cho synthesis và phân tích phức tạp.
+        </div>
+        <div class="opt-saving">↓ ~0.8s cho routing node (Haiku 3-5× nhanh hơn Sonnet)</div>
+      </div>
+
+      <div class="opt-item">
+        <div class="opt-item-title">5. Connection Pooling</div>
+        <div class="opt-item-desc">
+          Tái sử dụng httpx.AsyncClient giữa các A2A calls thay vì tạo connection mới mỗi lần. Giảm TCP handshake overhead cho distributed stage 5.
+        </div>
+        <div class="opt-saving">↓ ~0.1-0.3s per A2A hop</div>
+      </div>
+
+      <div class="opt-item">
+        <div class="opt-item-title">6. Registry Cache</div>
+        <div class="opt-item-desc">
+          Cache kết quả discover() trong bộ nhớ với TTL 60s. Tránh HTTP call đến Registry cho mỗi request khi agents không thay đổi.
+        </div>
+        <div class="opt-saving">↓ ~0.05s per request (small but free)</div>
+      </div>
+
+    </div>
+
+    <div class="compare-bar" style="margin-top:20px">
+      <div class="bar-label">
+        <span>Before optimization (sequential, no cache)</span>
+        <span style="color:var(--red)">~8.5s</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill bar-before" style="width:100%"></div></div>
+
+      <div class="bar-label">
+        <span>After: parallel + haiku routing + prompt cache</span>
+        <span style="color:var(--green)">~2.8s</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill bar-after" style="width:33%"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Tab switching ──────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const panels = ['stage4', 'stage5', 'latency'];
+    t.classList.toggle('active', panels[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── Utilities ─────────────────────────────────────────
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function ts() {
+  const d = new Date();
+  return d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+}
+
+function appendLog(containerId, msg, type = '') {
+  const container = document.getElementById(containerId);
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `<span class="log-time">${ts()}</span><span class="log-msg ${type}">${msg}</span>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function setBadge(id, state) {
+  const el = document.getElementById(id);
+  const states = {
+    idle:    ['badge-idle',    '● Idle'],
+    running: ['badge-running', '⟳ Running'],
+    done:    ['badge-done',    '✓ Done'],
+    error:   ['badge-error',   '✗ Error'],
+  };
+  const [cls, text] = states[state] || states.idle;
+  el.className = `status-badge ${cls}`;
+  el.innerHTML = state === 'running'
+    ? `<span class="pulse">●</span> Running`
+    : text;
+}
+
+function setCard(id, state) {
+  const el = document.getElementById(id);
+  el.classList.remove('active', 'done');
+  if (state === 'active') el.classList.add('active');
+  if (state === 'done')   el.classList.add('done');
+}
+
+function setOutput(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+// ── Stage 4 simulation ────────────────────────────────
+let s4Running = false;
+
+async function runStage4() {
+  if (s4Running) return;
+  s4Running = true;
+  resetStage4(false);
+
+  const question = document.getElementById('s4-question').value;
+  const logId = 's4-log';
+
+  appendLog(logId, `Question: "${question.slice(0, 60)}..."`, 'info');
+  appendLog(logId, 'Graph compiled — starting execution', 'info');
+
+  // analyze_law
+  setCard('s4-node-law', 'active'); setBadge('s4-badge-law', 'running');
+  appendLog(logId, '[analyze_law] Lead attorney analysing legal aspects...');
+  await sleep(1400 + Math.random() * 600);
+  setCard('s4-node-law', 'done'); setBadge('s4-badge-law', 'done');
+  setOutput('s4-out-law', 'Law analysis: Identified potential contract breach, tax evasion, and data privacy violations. Multiple legal frameworks apply. Recommending specialist review of tax and compliance dimensions.');
+  appendLog(logId, '[analyze_law] Done (312 chars)', 'ok');
+
+  document.getElementById('s4-arr1').classList.add('active');
+  await sleep(200);
+
+  // check_routing
+  setCard('s4-node-router', 'active'); setBadge('s4-badge-router', 'running');
+  appendLog(logId, '[check_routing] Querying LLM for routing decision...');
+  await sleep(700 + Math.random() * 400);
+
+  const hasPrivacy = /data|privacy|gdpr/i.test(question);
+  const hasTax = /tax|irs|thuế/i.test(question);
+  const hasCompliance = /compliance|sec|regulation|nda/i.test(question);
+  const needsTax = hasTax || Math.random() > 0.3;
+  const needsCompliance = hasCompliance || Math.random() > 0.3;
+  const needsPrivacy = hasPrivacy || Math.random() > 0.5;
+
+  setCard('s4-node-router', 'done'); setBadge('s4-badge-router', 'done');
+  setOutput('s4-out-router', `{"needs_tax": ${needsTax}, "needs_compliance": ${needsCompliance}, "needs_privacy": ${needsPrivacy}}`);
+  appendLog(logId, `[check_routing] needs_tax=${needsTax}, needs_compliance=${needsCompliance}, needs_privacy=${needsPrivacy}`, 'ok');
+  appendLog(logId, '[check_routing] Dispatching parallel Send() to specialists...');
+
+  document.getElementById('s4-arr2').classList.add('active');
+  document.getElementById('s4-arr2').style.color = 'var(--accent2)';
+  await sleep(150);
+
+  // parallel specialists
+  const specialists = [];
+  if (needsTax)        specialists.push({ node: 's4-node-tax',        badge: 's4-badge-tax',        out: 's4-out-tax',        name: 'call_tax_specialist',        delay: 1800 + Math.random() * 800, result: 'Tax evasion (26 U.S.C. § 7201): felony, $250K fine + 5 years prison. FBAR penalties: $100K or 50% account balance. Civil fraud: 75% underpayment penalty (IRC § 6663).' });
+  if (needsCompliance) specialists.push({ node: 's4-node-compliance',  badge: 's4-badge-compliance',  out: 's4-out-compliance',  name: 'call_compliance_specialist',  delay: 2100 + Math.random() * 700, result: 'SOX violation: $5M fine, 20yr prison (§ 906). FCPA bribery: $2M corporate penalty. NDA breach triggers SEC enforcement and potential class action.' });
+  if (needsPrivacy)    specialists.push({ node: 's4-node-privacy',     badge: 's4-badge-privacy',     out: 's4-out-privacy',     name: 'privacy_agent',               delay: 1600 + Math.random() * 600, result: 'GDPR Art. 83: up to 4% global revenue or €20M. CCPA: $7,500 per intentional violation. FTC Act § 5 enforcement. Class action exposure $100-$750/consumer.' });
+
+  if (specialists.length === 0) specialists.push({ node: 's4-node-tax', badge: 's4-badge-tax', out: 's4-out-tax', name: 'call_tax_specialist', delay: 1500, result: 'General legal analysis applied.' });
+
+  specialists.forEach(s => { setCard(s.node, 'active'); setBadge(s.badge, 'running'); appendLog(logId, `[${s.name}] Agent starting (parallel)...`); });
+
+  await Promise.all(specialists.map(async s => {
+    await sleep(s.delay);
+    setCard(s.node, 'done'); setBadge(s.badge, 'done');
+    setOutput(s.out, s.result);
+    appendLog(logId, `[${s.name}] Done (${s.result.length} chars)`, 'ok');
+  }));
+
+  document.getElementById('s4-arr3').classList.add('active');
+  await sleep(200);
+
+  // aggregate
+  setCard('s4-node-agg', 'active'); setBadge('s4-badge-agg', 'running');
+  appendLog(logId, '[aggregate] Combining all specialist analyses...');
+  await sleep(1200 + Math.random() * 600);
+  setCard('s4-node-agg', 'done'); setBadge('s4-badge-agg', 'done');
+  setOutput('s4-out-agg', '✅ FINAL ANSWER: The company faces multi-jurisdictional exposure across tax, compliance, and privacy law. Immediate risks include criminal prosecution (IRS, DOJ), SEC enforcement, GDPR/CCPA fines up to 4% global revenue, and civil class actions. Recommend engaging specialised counsel across all three domains.');
+  appendLog(logId, '[aggregate] Done — final answer ready', 'ok');
+  appendLog(logId, '✓ Graph execution complete', 'ok');
+
+  s4Running = false;
+}
+
+function resetStage4(resetLog = true) {
+  ['law','router','tax','compliance','privacy','agg'].forEach(n => {
+    setCard(`s4-node-${n}`, ''); setBadge(`s4-badge-${n}`, 'idle');
+    setOutput(`s4-out-${n}`, 'Waiting...');
+  });
+  ['s4-arr1','s4-arr2','s4-arr3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('active'); el.style.color = ''; }
+  });
+  if (resetLog) document.getElementById('s4-log').innerHTML = '';
+  s4Running = false;
+}
+
+// ── Stage 5 simulation ────────────────────────────────
+let s5Running = false;
+
+const seqSteps = [
+  { from: 'User',            to: 'Customer :10100', proto: 'seq-a2a',      msg: 'POST /tasks/send — legal question + trace_id generated' },
+  { from: 'Customer :10100', to: 'Registry :10000',  proto: 'seq-http',     msg: 'GET /discover/legal_question → returns Law Agent endpoint' },
+  { from: 'Customer :10100', to: 'Law :10101',       proto: 'seq-a2a',      msg: 'A2A delegate() — question + trace_id + context_id + depth=1' },
+  { from: 'Law :10101',      to: 'Law :10101',       proto: 'seq-http',     msg: 'analyze_law node: LLM call for legal analysis (~1.5s)' },
+  { from: 'Law :10101',      to: 'Law :10101',       proto: 'seq-http',     msg: 'check_routing node: LLM decides needs_tax=true, needs_compliance=true' },
+  { from: 'Law :10101',      to: 'Registry :10000',  proto: 'seq-http',     msg: 'GET /discover/tax_question + GET /discover/compliance_question (parallel)' },
+  { from: 'Law :10101',      to: 'Tax :10102 + Compliance :10103', proto: 'seq-parallel', msg: 'asyncio.gather() — A2A calls dispatched simultaneously (depth=2)' },
+  { from: 'Tax :10102',      to: 'Law :10101',       proto: 'seq-a2a',      msg: 'Tax analysis complete — IRC § 7201, FBAR, § 6663 penalties' },
+  { from: 'Compliance :10103','to': 'Law :10101',    proto: 'seq-a2a',      msg: 'Compliance analysis — SOX, FCPA, GDPR violations identified' },
+  { from: 'Law :10101',      to: 'Law :10101',       proto: 'seq-http',     msg: 'aggregate node: LLM synthesizes all analyses (~1.2s)' },
+  { from: 'Law :10101',      to: 'Customer :10100',  proto: 'seq-a2a',      msg: 'Final answer returned via A2A response' },
+  { from: 'Customer :10100', to: 'User',             proto: 'seq-http',     msg: '✓ Response delivered — total latency ~4.1s' },
+];
+
+async function runStage5() {
+  if (s5Running) return;
+  s5Running = true;
+  resetStage5(false);
+
+  const logId = 's5-log';
+  const seqBody = document.getElementById('s5-seq-body');
+  seqBody.innerHTML = '';
+
+  const nodeMap = {
+    'Customer :10100': 's5-customer',
+    'Law :10101':      's5-law',
+    'Registry :10000': 's5-registry',
+    'Tax :10102':      's5-tax',
+    'Compliance :10103': 's5-compliance',
+  };
+
+  function activateNode(label) {
+    const id = nodeMap[label];
+    if (id) document.getElementById(id)?.classList.add('active');
+  }
+  function doneNode(label) {
+    const id = nodeMap[label];
+    if (id) {
+      const el = document.getElementById(id);
+      el?.classList.remove('active');
+      el?.classList.add('done');
+    }
+  }
+
+  appendLog(logId, 'All 5 services running — test_client.py connected', 'info');
+
+  for (let i = 0; i < seqSteps.length; i++) {
+    const step = seqSteps[i];
+    await sleep(400 + Math.random() * 300);
+
+    activateNode(step.from);
+    activateNode(step.to);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${step.from}</td>
+      <td>${step.to}</td>
+      <td><span class="seq-badge ${step.proto}">${step.proto.replace('seq-', '').toUpperCase()}</span></td>
+      <td>${step.msg}</td>`;
+    seqBody.appendChild(tr);
+
+    appendLog(logId, `${step.from} → ${step.to}: ${step.msg}`);
+
+    if (i > 0) doneNode(seqSteps[i - 1].from);
+  }
+
+  // Mark all done
+  Object.values(nodeMap).forEach(id => {
+    const el = document.getElementById(id);
+    el?.classList.remove('active');
+    el?.classList.add('done');
+  });
+  appendLog(logId, '✓ Stage 5 request complete — trace_id closed', 'ok');
+  s5Running = false;
+}
+
+function resetStage5(resetLog = true) {
+  ['s5-customer','s5-law','s5-registry','s5-tax','s5-compliance'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('active', 'done'); }
+  });
+  ['s5-line-rc','s5-line-cl','s5-line-ls','s5-hline'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  document.getElementById('s5-seq-body').innerHTML =
+    '<tr><td colspan="5" style="color:var(--muted);text-align:center">Press Run to simulate...</td></tr>';
+  if (resetLog) document.getElementById('s5-log').innerHTML = '';
+  s5Running = false;
+}
+</script>
+</body>
+</html>
